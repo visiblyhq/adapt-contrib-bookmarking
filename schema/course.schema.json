@@ -29,6 +29,7 @@
               "default": "component",
               "enum": [
                 "page",
+                "article",
                 "block",
                 "component"
               ],

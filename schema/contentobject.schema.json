@@ -30,6 +30,7 @@
               "enum": [
                 "inherit",
                 "page",
+                "article",
                 "block",
                 "component"
               ],

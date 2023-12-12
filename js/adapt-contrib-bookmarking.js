@@ -15,8 +15,19 @@ class Bookmarking extends Backbone.Controller {
     this.listenToOnce(Adapt, 'router:location', this.onAdaptInitialize);
   }
 
+  sendNotification() {
+    try {
+      AdaptNotificationChannel?.postMessage('course_loaded');
+    } catch (error) {
+      console.log('Caught notification channel error');
+    }
+  }
+
   onAdaptInitialize() {
-    if (!this.checkCourseIsEnabled()) return;
+    if (!this.checkCourseIsEnabled()) {
+      this.sendNotification();
+      return;
+    }
     this.setupEventListeners();
     this.checkRestoreLocation();
   }
@@ -40,20 +51,36 @@ class Bookmarking extends Backbone.Controller {
 
   checkRestoreLocation() {
     this.restoredLocationID = offlineStorage.get('location');
-    if (!this.restoredLocationID || this.restoredLocationID === 'undefined' || !data.findById(this.restoredLocationID)) return;
+    if (!this.restoredLocationID || this.restoredLocationID === 'undefined' || !data.findById(this.restoredLocationID)) {
+      this.sendNotification();
+      return;
+    }
+    var model = data.findById(this.restoredLocationID);
+    if (model.get('_type') === 'page') {
+      var firstArticle = model
+        .getChildren()
+        .find((el) => el.get('_type') === 'article');
+      this.restoredLocationID = firstArticle.get('_id');
+    }
     this.listenToOnce(Adapt, 'pageView:ready menuView:ready', this.restoreLocation);
   }
 
   restoreLocation() {
     this.stopListening(Adapt, 'pageView:ready menuView:ready', this.restoreLocation);
-    _.delay(() => {
-      if (this.isAlreadyOnScreen(this.restoredLocationID)) return;
-      if (Adapt.course.get('_bookmarking')._showPrompt === false) {
-        this.navigateToPrevious();
-        return;
-      }
-      this.showPrompt();
-    }, 500);// slight delay is necessary to allow any render & scrollTo to complete before calling isAlreadyOnScreen
+    var restoreLocationModel = Adapt.articles.models.find(
+      (el) => el.get('_id') == this.restoredLocationID
+    );
+    if (restoreLocationModel) {
+      var currentArticle = Adapt.articles.find((el) => el.get('_current'));
+      currentArticle?.set('_current', false);
+      restoreLocationModel.set('_current', true);
+    }
+
+    if (Adapt.course.get('_bookmarking')._showPrompt === false) {
+      this.navigateToPrevious();
+      return;
+    }
+    this.showPrompt();
   }
 
   /**
@@ -101,7 +128,16 @@ class Bookmarking extends Backbone.Controller {
     _.defer(async () => {
       const isSinglePage = (Adapt.contentObjects.models.length === 1);
       try {
-        await router.navigateToElement(this.restoredLocationID, { trigger: true, replace: isSinglePage, duration: 400 });
+        this.listenTo(Adapt, 'Object]:scrolledTo', function (event) {
+          if (event.includes(this.restoredLocationID)) {
+            setTimeout(this.sendNotification, 100);
+
+            this.stopListening(Adapt, 'Object]:scrolledTo');
+          }
+        });
+        await router.navigateToElement(this.restoredLocationID, {
+          replace: isSinglePage,
+        });
       } catch (err) {
         logging.warn(`Bookmarking cannot navigate to id: ${this.restoredLocationID}\n`, err);
       }
@@ -185,7 +221,12 @@ class Bookmarking extends Backbone.Controller {
       const element = $(`[data-adapt-id=${id}]`);
       if (!element.length) return;
       const measurements = element.onscreen();
-      if (!measurements.onscreen) return;
+      if (!measurements.onscreen) {
+        measurements = element.last().onscreen();
+        if (!measurements.onscreen) {
+          return;
+        }
+      }
       if (measurements.percentInview <= highestOnscreen) return;
       highestOnscreen = measurements.percentInview;
       highestOnscreenLocation = id;

@@ -33,6 +33,7 @@
                   "required": true,
                   "enum": [
                     "page",
+                    "article",
                     "block",
                     "component"
                   ],
@@ -42,6 +43,7 @@
                     "type": "Select",
                     "options": [
                       "page",
+                      "article",
                       "block",
                       "component"
                     ]
@@ -125,6 +127,7 @@
                   "enum": [
                     "inherit",
                     "page",
+                    "article",
                     "block",
                     "component"
                   ],
@@ -135,6 +138,7 @@
                     "options": [
                       "inherit",
                       "page",
+                      "article",
                       "block",
                       "component"
                     ]
