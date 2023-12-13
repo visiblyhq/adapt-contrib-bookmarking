@@ -221,12 +221,7 @@ class Bookmarking extends Backbone.Controller {
       const element = $(`[data-adapt-id=${id}]`);
       if (!element.length) return;
       const measurements = element.onscreen();
-      if (!measurements.onscreen) {
-        measurements = element.last().onscreen();
-        if (!measurements.onscreen) {
-          return;
-        }
-      }
+      if (!measurements.onscreen) return;
       if (measurements.percentInview <= highestOnscreen) return;
       highestOnscreen = measurements.percentInview;
       highestOnscreenLocation = id;
