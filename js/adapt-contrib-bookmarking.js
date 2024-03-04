@@ -2,9 +2,9 @@ import Adapt from 'core/js/adapt';
 import offlineStorage from 'core/js/offlineStorage';
 import logging from 'core/js/logging';
 import location from 'core/js/location';
-import router from 'core/js/router';
 import notify from 'core/js/notify';
 import data from 'core/js/data';
+import { navigateToArticle } from 'extensions/adapt-visiblyhq/js/utils';
 
 class Bookmarking extends Backbone.Controller {
 
@@ -126,18 +126,26 @@ class Bookmarking extends Backbone.Controller {
 
   navigateToPrevious() {
     _.defer(async () => {
-      const isSinglePage = (Adapt.contentObjects.models.length === 1);
       try {
-        this.listenTo(Adapt, 'Object]:scrolledTo', function (event) {
-          if (event.includes(this.restoredLocationID)) {
-            setTimeout(this.sendNotification, 100);
+        var currentArticles = Adapt.articles.models.filter((el) =>
+          el.get('_current')
+        );
+        if (currentArticles.length > 0) {
+          currentArticles[0].set('_current', false);
+        }
+        var splitHash = window.location.hash.split('/');
+        var urlId = splitHash[splitHash.length - 1];
+        var articleFromUrl = Adapt.articles.models.filter(
+          (el) => el.get('_id') === urlId
+        )[0];
 
-            this.stopListening(Adapt, 'Object]:scrolledTo');
-          }
-        });
-        await router.navigateToElement(this.restoredLocationID, {
-          replace: isSinglePage,
-        });
+        var restoreLocationArticle = Adapt.articles.models.filter(
+          (el) => el.get('_id') === this.restoredLocationID
+        )[0];
+
+        navigateToArticle(articleFromUrl, restoreLocationArticle);
+
+        this.sendNotification();
       } catch (err) {
         logging.warn(`Bookmarking cannot navigate to id: ${this.restoredLocationID}\n`, err);
       }
